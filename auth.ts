@@ -1,8 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import GithubProvider from "next-auth/providers/github";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { adminDb } from "./firebase-admin";
+import { adminAuth, adminDb } from "./firebase-admin";
 import { FirestoreAdapter } from "@auth/firebase-adapter";
 
 export const authOptions: NextAuthOptions = {
@@ -12,8 +10,22 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+  callbacks: {
+    session: async ({ session, token }) => {
+      if (session?.user) {
+        if (token.sub) {
+          session.user.id = token.sub;
+          const firebaseToken = await adminAuth.createCustomToken(token.sub);
+          session.firebaseToken = firebaseToken;
+        }
+      }
+
+      return session;
+    },
+  },
   session: {
     strategy: "jwt",
   },
+
   adapter: FirestoreAdapter(adminDb),
 } satisfies NextAuthOptions;
